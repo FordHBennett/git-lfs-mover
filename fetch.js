@@ -37,7 +37,6 @@ const fetchList = async (listId) => {
     const response = await getListPage(pageNumber)
     results = results.concat(response)
     resultSize = response.length
-    //console.log(`Results length: ${results.length}`)
     pageNumber++
   } while(resultSize === pageSize)
 
@@ -55,42 +54,6 @@ const fetchIssues = async () => {
       const pr = pulls.find(pull => pull.number === issue.number)
       const prReviews = await fetchList(`pulls/${issue.number}/reviews`)
       for (let review of prReviews) {
-        // if(review.commit_id)
-        // {
-        //   const review_commit_result = spawnSync("git", ["show", review.commit_id], { cwd: repoPath });
-        //   console.log(review_commit_result.stderr.toString("utf-8"))
-        //   if (review_commit_result.stderr.toString("utf-8").includes("fatal: bad object")) {
-        //     const reviewCommits = await fetchList(`pulls/${issue.number}/reviews/commits`)
-        //     const parent_review_commits = reviewCommits.map(commit => commit.commit_id)
-        //     for(commit of parent_review_commits.reverse())
-        //     {
-        //       const commit_result = spawnSync("git", ["show", commit], { cwd: repoPath });
-        //       if (!(commit_result.stderr.toString("utf-8").includes("fatal: bad object")))
-        //       {
-        //         review.commit_id = commit;
-        //         break;
-        //       }
-        //     }
-        //   }
-        // }
-        // else if(review.comments.commit_id)
-        // {
-        //   const review_commit_result = spawnSync("git", ["show", review.comments.commit_id], { cwd: repoPath });
-        //   console.log(review_commit_result.stderr.toString("utf-8"))
-        //   if (review_commit_result.stderr.toString("utf-8").includes("fatal: bad object")) {
-        //     const reviewCommits = await fetchList(`pulls/${issue.number}/reviews/commits`)
-        //     const parent_review_commits = reviewCommits.map(commit => commit.comments.commit_id)
-        //     for(commit of parent_review_commits.reverse())
-        //     {
-        //       const commit_result = spawnSync("git", ["show", commit], { cwd: repoPath });
-        //       if (!(commit_result.stderr.toString("utf-8").includes("fatal: bad object")))
-        //       {
-        //         review.comments.commit_id = commit;
-        //         break;
-        //       }
-        //     }
-        //   }
-        // }
         const reviewComments = await fetchList(`pulls/${issue.number}/reviews/${review.id}/comments`)
         review.comments = reviewComments
         comments = comments.concat(reviewComments)
@@ -100,12 +63,6 @@ const fetchIssues = async () => {
         issue.base = pr.base
         const base_result = spawnSync("git", ["show", issue.base.sha], { cwd: repoPath });
         if (base_result.stderr.toString("utf-8").includes("fatal: bad object")) {
-          // const response = await request({
-          // headers,
-          // url: `${source}/pulls/${issue.number}`
-          // });
-          // const pullRequest = JSON.parse(response);
-          // const parent_base_commits = pullRequest.base.sha.split(' ');
          const prCommits = await fetchList(`pulls/${issue.number}/commits`)
          const parent_base_commits = prCommits.lmap(commit => commit.sha)
           for(commit of parent_base_commits.reverse())
@@ -121,7 +78,6 @@ const fetchIssues = async () => {
 
         issue.head = pr.head
         const head_result = spawnSync("git", ["show", issue.head.sha], { cwd: repoPath });
-        // console.log(head_result.stderr.toString("utf-8"))
         if (head_result.stderr.toString("utf-8").includes("fatal: bad object")) {
           const prCommits = await fetchList(`pulls/${issue.number}/commits`)
           const parent_head_commits = prCommits.map(commit => commit.sha)

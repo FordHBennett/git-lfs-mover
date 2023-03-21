@@ -12,7 +12,7 @@ const replaceAll = (str, obj) => {
 }
 
 /**
- * 
+ *
  * @param {string} content
  */
 const processImages = async (content) => {

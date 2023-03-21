@@ -79,7 +79,6 @@ const isCommitComment = comment => !!comment.commit_id && !comment.pull_request_
 const logError = (comment, err) => {
   console.log(`Could not create comment: ${comment.id}`)
   console.log(`Message: ${err}`)
-  // process.exit(1)
 }
 
 const createComment = async (comment, comments) => {

@@ -4,7 +4,6 @@ const glob = require('glob')
 
 const { sleep } = require('./utils')
 const config = require('./config')
-const createMessage = require('./createMessage')
 
 const api = `${config.target.baseUrl}/${config.target.org}/${config.target.repo}`
 
@@ -75,15 +74,15 @@ const main = async () => {
   const issues = glob.sync(`${config.source.repo}/issues/issue-+([0-9]).json`)
     .map(file => JSON.parse(fs.readFileSync(file)))
     .sort((a, b) => a.number - b.number)
-  
+
   // console.log(issues)
   const state = JSON.parse(await fs.readFile(`./${config.source.repo}/state.json`))
-  let processed = 0  
+  let processed = 0
   for (let issue of issues) {
     if (issue.number <= (state.deletedIssue || 0)) {
       console.log(`Skipping ${issue.number}. Already processed`)
     } else {
-      console.log(`ETA: ${formatDuration((issues.length - processed) / config.apiCallsPerHour * 60 * 60 * 1000)}`)      
+      console.log(`ETA: ${formatDuration((issues.length - processed) / config.apiCallsPerHour * 60 * 60 * 1000)}`)
       await deleteBranch(issue)
     }
     processed++

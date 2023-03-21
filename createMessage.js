@@ -40,7 +40,7 @@ const getUsername = user => {
 
 const createMessage = (issue) => {
 	const creation = formatDate(issue.created_at);
-	
+
 	const createdAvatar = issue.user.avatar_url ? `[<img alt="${issue.user.login}" height="40" width="40" align="left" src="${getAvatarUrl(issue.user)}">](${getUserUrl(issue.user)})` : ''
 
   const merged_at = issue.merged_at ? `Merged ${formatDate(issue.merged_at)}` : ''
