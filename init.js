@@ -43,21 +43,10 @@ module.exports = {
     commentToken: '',
     /**
      * Optional URL for user avatars when creating issues and comments. Requires 'id' config in 'users.json'
-     * @example 
+     * @example
      */
     avatarUrl: 'https://avatars0.githubusercontent.com/u/{id}?s=40&v=4',
   },
-  /**
-   * This value will throttle scripts to prevent going over API limits
-   */
-  apiCallsPerHour: 3000,
-  /**
-   * Optional
-   * BFG command to run: https://rtyley.github.io/bfg-repo-cleaner/
-   * This value will include just arguments.
-   * For example: '--strip-blobs-bigger-than 5M'
-   */
-  bfg: '',
   /**
    * Optional
    * If you are moving from Github Enterprise to github.com, you're images won't be viewable when migrated.

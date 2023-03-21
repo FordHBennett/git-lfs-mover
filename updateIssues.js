@@ -6,7 +6,6 @@ const { sleep } = require('./utils')
 const config = require('./config')
 
 const api = `${config.target.baseUrl}/${config.target.org}/${config.target.repo}`
-const apiCallsPerHour = 3000 // for API rate limiting
 
 const headers = {
   'Accept': 'application/vnd.github.v3+json',
@@ -62,7 +61,7 @@ const main = async () => {
   const issues = glob.sync(`${config.source.repo}/issues/issue-+([0-9]).json`)
     .map(file => JSON.parse(fs.readFileSync(file)))
     .sort((a, b) => a.number - b.number)
-  
+
   // console.log(issues)
   const state = JSON.parse(await fs.readFile(`./${config.source.repo}/state.json`))
   for (let issue of issues) {
