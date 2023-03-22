@@ -1,33 +1,31 @@
+/* Importing the required libraries. */
 const request = require('request-promise')
 const fs = require('fs-extra')
-const glob = require('glob')
 const { spawnSync } = require("child_process");
 
+/* Importing the config file and setting up the variables for the repo, source, repoPath, and pageSize. */
 const config = require('./config')
-
-// Define source and target URLs
 const repo = config.source.repo
 const source = `${config.source.baseUrl}/${config.source.org}/${config.source.repo}`
-const target = `${config.target.baseUrl}/${config.target.org}/${config.target.repo}`
-
-// Path to the git repository
 const repoPath = `${config.source.repo}/.git`;
-
-// Number of items to fetch per page
 const pageSize = 100
 
-// HTTP headers for the API requests
+/* This is setting up the headers for the request. */
 const headers = {
   'Accept': 'application/vnd.github+json',
   'User-Agent': 'node.js'
 }
-
-// If an access token is provided, include it in the headers
 if (config.source.token) {
   headers['Authorization'] = `token ${config.source.token}`
 }
 
-// Returns a function that fetches a page of results for a given list
+/**
+ * It takes a list id and returns a function that takes a page number and returns a promise that
+ * resolves to the JSON response of the GitHub API for that list id and page number
+ * @param listId - The id of the list you want to get the issues from.
+ * @returns A function that takes a page number and returns a promise that resolves to an array of
+ * issues.
+ */
 const getPage = (listId) => async (page) => {
   return JSON.parse(await request({
     headers,
@@ -35,107 +33,103 @@ const getPage = (listId) => async (page) => {
   }))
 }
 
-// Fetches all items for a given list
+/**
+ * "Fetch a list of items from a paginated API, and return the results as a single array."
+ *
+ * The function takes a single argument, the ID of the list to fetch. It then calls the `getPage`
+ * function, which we'll define in a moment, to fetch the first page of results. It then loops, calling
+ * `getPage` again to fetch the next page of results, until the number of results returned is less than
+ * the page size
+ * @param listId - The id of the list you want to fetch.
+ * @returns An array of objects
+ */
 const fetchList = async (listId) => {
   let pageNumber = 1
   let results = []
   let resultSize = 0
   const getListPage = getPage(listId)
 
-  // Keep fetching pages until we get an empty page
   do {
     console.log(`Fetching page ${pageNumber} of ${listId}`)
     const response = await getListPage(pageNumber)
     results = results.concat(response)
     resultSize = response.length
     pageNumber++
-  } while(resultSize === pageSize)
+  } while (resultSize === pageSize)
 
   return results
 }
 
-// This function fetches issues and pulls from an API and adds additional information
-// to the issues based on the corresponding pull requests, such as base, head, and merged_at.
-const fetchIssues = async () => {
-  // Fetches a list of issues and pulls from the API.
-  const issues = await fetchList('issues')
-  const pulls = await fetchList('pulls')
-
-  // Initializes arrays for reviews and comments.
-  let reviews = []
-  let comments = []
-
-  // Loops through each issue in the issues array.
-  for (let issue of issues) {
-    // If the issue is a pull request, find the corresponding pull request in the pulls array.
-    if (issue.pull_request) {
-      const pr = pulls.find(pull => pull.number === issue.number)
-      // Fetches a list of reviews for the pull request.
-      const prReviews = await fetchList(`pulls/${issue.number}/reviews`)
-
-      // Loops through each review for the pull request.
-      for (let review of prReviews) {
-        // Fetches a list of comments for the review.
-        const reviewComments = await fetchList(`pulls/${issue.number}/reviews/${review.id}/comments`)
-        // Adds the comments to the review object.
-        review.comments = reviewComments
-        // Concatenates the comments array with the comments from the review.
-        comments = comments.concat(reviewComments)
-      }
-      // Concatenates the reviews array with the reviews for the pull request.
-      reviews = reviews.concat(prReviews)
-
-      // If the pull request exists, add base, head, and merged_at information to the issue.
-      if (pr) {
-        issue.base = pr.base
-        // Checks if the base sha exists in the repo.
-        const base_result = spawnSync("git", ["show", issue.base.sha], { cwd: repoPath });
-        // If the base sha doesn't exist, find the parent commit of the base sha that exists.
-        if (base_result.stderr.toString("utf-8").includes("fatal: bad object")) {
-          const prCommits = await fetchList(`pulls/${issue.number}/commits`)
-          const parent_base_commits = prCommits.map(commit => commit.sha)
-          // Loops through the parent base commits in reverse order to find the first one that exists.
-          for(commit of parent_base_commits.reverse())
-          {
-            const commit_result = spawnSync("git", ["show", commit], { cwd: repoPath });
-            if (!(commit_result.stderr.toString("utf-8").includes("fatal: bad object")))
-            {
-              issue.base.sha = commit;
-              break;
-            }
-          }
-        }
-
-        issue.head = pr.head
-        // Checks if the head sha exists in the repo.
-        const head_result = spawnSync("git", ["show", issue.head.sha], { cwd: repoPath });
-        // If the head sha doesn't exist, find the parent commit of the head sha that exists.
-        if (head_result.stderr.toString("utf-8").includes("fatal: bad object")) {
-          const prCommits = await fetchList(`pulls/${issue.number}/commits`)
-          const parent_head_commits = prCommits.map(commit => commit.sha)
-          // Loops through the parent head commits in reverse order to find the first one that exists.
-          for(commit of parent_head_commits.reverse())
-          {
-            const commit_result = spawnSync("git", ["show", commit], { cwd: repoPath });
-            if (!(commit_result.stderr.toString("utf-8").includes("fatal: bad object")))
-            {
-              issue.head.sha = commit;
-              break;
-            }
-          }
-        }
-        issue.merged_at = pr.merged_at
-      }
-    }
-  }
-
-  return { issues, reviews, comments }
+/**
+ * It returns true if the result of a git command contains the string "fatal: bad object"
+ * @param result - The result of the git command.
+ * @returns The result of the command
+ */
+const isBadObject = (result) => {
+  return result.stderr.toString("utf-8").includes("fatal: bad object")
 }
 
 /**
- *
- * @param {{}[]} issues
- * @param {{}[]} pulls
+ * If the commit hash is bad, then get the list of commits in the PR, and check each one until you find
+ * a good one
+ * @param issue - the issue object
+ * @param which - the branch that we're checking the commit hash for.
+ */
+const checkCommitHash = async (issue, which) => {
+  const commit_result = spawnSync("git", ["show", issue[which].sha], { cwd: repoPath });
+  if (isBadObject(commit_result)) {
+    const prCommits = await fetchList(`pulls/${issue.number}/commits`)
+    const parent_commits = prCommits.map(commit => commit.sha)
+    for (let commit of parent_commits.reverse()) {
+      const commit_result = spawnSync("git", ["show", commit], { cwd: repoPath });
+      if (!(isBadObject(commit_result))) {
+        issue[which].sha = commit;
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * It fetches all issues and pull requests, then fetches all reviews and comments for each pull
+ * request, and finally returns all of that data
+ * @returns An object with three properties: issues, reviews, and comments.
+ */
+const fetchIssues = async () => {
+  const issues = await fetchList('issues')
+  const pulls = await fetchList('pulls')
+
+  let reviews = []
+  let comments = []
+
+  for (let issue of issues) {
+    if (issue.pull_request) {
+      const pr = pulls.find(pull => pull.number === issue.number)
+      const prReviews = await fetchList(`pulls/${issue.number}/reviews`)
+
+      for (let review of prReviews) {
+        const reviewComments = await fetchList(`pulls/${issue.number}/reviews/${review.id}/comments`)
+        review.comments = reviewComments
+        comments = comments.concat(reviewComments)
+      }
+      reviews = reviews.concat(prReviews)
+
+      if (pr) {
+        issue.base = pr.base
+        checkCommitHash(issue, "base")
+      }
+      issue.head = pr.head
+      checkCommitHash(issue, "head")
+      issue.merged_at = pr.merged_at
+    }
+  }
+  return { issues, reviews, comments }
+}
+
+
+/**
+ * It takes an array of issues, and writes each issue to a file in the `issues` directory
+ * @param issues - The array of issues to write to disk.
  */
 const writeIssues = async (issues) => {
   await fs.ensureDir(`${repo}/issues`)
@@ -145,15 +139,22 @@ const writeIssues = async (issues) => {
   }
 }
 
+/**
+ * It takes a name and returns a function that takes an array of items and writes them to a file
+ * @param name - The name of the file to write to.
+ * @returns A function that takes an array of items and writes them to a file.
+ */
 const writeList = (name) => (items) => {
   const fileName = `${repo}/${name}.json`
   return fs.writeFile(fileName, JSON.stringify(items, null, '  '))
 }
 
+/**
+ * It fetches all the issues, reviews, and comments, and writes them to the file system
+ */
 const main = async () => {
   await fs.ensureDir(repo)
 
-  // get all the issues
   const { issues, reviews, comments } = await fetchIssues()
   await writeIssues(issues)
   await writeList('reviews')(reviews)
@@ -165,7 +166,7 @@ const main = async () => {
     { listId: 'issues/comments', fileName: 'issue-comments' },
     { listId: 'commits', fileName: 'commits' },
     { listId: 'releases', fileName: 'releases' },
-  ].map(({ listId, fileName}) => {
+  ].map(({ listId, fileName }) => {
     return fetchList(listId)
       .then(writeList(fileName))
   }))
