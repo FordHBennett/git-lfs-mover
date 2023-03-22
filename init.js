@@ -1,5 +1,7 @@
+/* Importing the fs-extra module. */
 const fs = require('fs-extra')
 
+/* Creating a config file. */
 const configContents = `
 module.exports = {
   source: {
@@ -56,12 +58,14 @@ module.exports = {
 }
 `
 
+/* Checking if the file ./config.js exists. If it does not, it will create it. */
 if (!fs.pathExistsSync('./config.js')) {
   console.log('Creating a config')
 
   fs.writeFileSync('./config.js', configContents)
 }
 
+/* Checking if the file ./s3Config.json exists. If it does not, it will create it. */
 if (!fs.pathExistsSync('./s3Config.json')) {
   console.log('Creating an s3 config')
   const s3Config = {
@@ -73,6 +77,7 @@ if (!fs.pathExistsSync('./s3Config.json')) {
   fs.writeFileSync('./s3Config.json', JSON.stringify(s3Config, null, '  '))
 }
 
+/* Creating a file called users.js */
 usersContent = `
 module.exports = {
   /**
@@ -88,6 +93,7 @@ module.exports = {
 }
 `
 
+/* Checking if the file ./users.js exists. If it does not, it will create it. */
 if (!fs.pathExistsSync('./users.js')) {
   console.log('Creating a user map file')
 

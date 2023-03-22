@@ -5,4 +5,4 @@ package.json
 .DS_Store
 config.js
 s3Config.json
-s3Config.json
+.vscode/settings.json

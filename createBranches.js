@@ -1,3 +1,4 @@
+/* Importing the required modules. */
 const request = require('request-promise')
 const fs = require('fs-extra')
 const glob = require('glob')
@@ -14,6 +15,12 @@ if (config.target.token) {
   headers['Authorization'] = `token ${config.target.token}`
 }
 
+
+/**
+ * It creates a branch on the repository with the name `pr<issue number>base` and sets the head of the
+ * branch to the base branch of the pull request
+ * @param issue - the issue object from the webhook
+ */
 const createBranch = async (issue) => {
   const ref = `refs/heads/pr${issue.number}base`
   console.log(issue.base.sha);
@@ -32,6 +39,11 @@ const createBranch = async (issue) => {
   })
 }
 
+/**
+ * It checks if a branch exists for a given issue
+ * @param issue - the issue object from the GitHub API
+ * @returns A boolean value
+ */
 const isBranchMade = async (issue) => {
   const url = `${api}/branches/pr${issue.number}base`
   let exists = true
@@ -48,6 +60,9 @@ const isBranchMade = async (issue) => {
   return exists
 }
 
+/**
+ * It creates a branch for each issue that has a base branch
+ */
 const main = async () => {
   const issues = glob.sync(`${config.source.repo}/issues/issue-+([0-9]).json`)
     .map(file => JSON.parse(fs.readFileSync(file)))
