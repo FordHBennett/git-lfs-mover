@@ -12,6 +12,10 @@ if (config.target.token) {
   headers['Authorization'] = `token ${config.target.token}`
 }
 
+/**
+ * It takes a release object, logs the tag name, and then creates a release on GitHub
+ * @param release - {
+ */
 const createRelease = async (release) => {
   console.log(`Creating Release: ${release.tag_name}`)
   await request({
@@ -31,21 +35,6 @@ const createRelease = async (release) => {
     console.log(`Unable to create release: ${release.tag_name}`)
     console.log(err.message)
   })
-}
-
-/**
- * Takes milliseconds of elapsed time and creates a string like '05m 10s'
- * @param duration milliseconds
- */
-const formatDuration = (duration) => {
-  const seconds = duration / 1000
-  return new Date((seconds % 86400) * 1000)
-    .toUTCString()
-    .replace(/.*(\d{2}):(\d{2}):(\d{2}).*/, '$1h $2m $3s')
-    .replace('00h ', '')
-    .replace('00m ', '')
-    .replace('00s', '')
-    .trim()
 }
 
 const main = async () => {

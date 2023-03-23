@@ -76,26 +76,22 @@ const main = async () => {
 /* Checking if the issue has a base. If it does, it will create a branch for the issue. */
     if (issue.base) {
       console.log(`Creating branch for PR-${issue.number}`)
-      await createBranch(issue)
-     let branchExists = await isBranchMade(issue, 'base')
-      while (!branchExists) {
+      await createBranch(issue, 'base')
+      while (!(isBranchMade(issue, 'base'))) {
         console.log(`Waiting for branch pr${issue.number}base to exist`)
         await sleep(1000)
-        branchExists = await isBranchMade(issue, 'base')
       }
       await sleep(1000)
     }
 /* Creating a branch for the head of the issue. */
     else if (issue.head) {
       console.log(`Creating branch for PR-${issue.number}`)
-      await createBranch(issue)
-      let branchExists = await isBranchMade(issue, 'head')
-      while (!branchExists) {
+      await createBranch(issue,'head')
+      while (!(await isBranchMade(issue, 'head'))) {
         console.log(`Waiting for branch pr${issue.number}head to exist`)
         await sleep(1000)
-        branchExists = await isBranchMade(issue, 'head')
       }
-      await sleep(1000)
+
     }
   }
 }

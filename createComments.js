@@ -276,10 +276,9 @@ const createPullRequestComment = async (comment, comments = []) => {
             await setCommentProcessed(id, true)
           })
       })
-    pullCommentExists = await isPullRequestCommentMade(comment.pull_request_review_id, comment.commentId)
-    while (!pullCommentExists) {
+    while (!(isPullRequestCommentMade(comment.pull_request_review_id, comment.commentId))) {
+      console.log(`Waiting for pull comment ${comment.pull_request_review_id} to be created...`)
       await sleep(1000)
-      pullCommentExists = await isPullRequestCommentMade(comment.pull_request_review_id, comment.commentId)
     }
   }
 }
@@ -348,10 +347,9 @@ const createCommitComment = async (comment) => {
         logError(comment, err)
       })
 
-    commitCommentExists = await isCommitCommentMade(sha, id)
-    while (!commitCommentExists) {
+    while (!(await isCommitCommentMade(sha, id))) {
+      console.log(`Waiting for comment ${id} to be created...`)
       await sleep(1000)
-      commitCommentExists = await isCommitCommentMade(sha, id)
     }
   }
 }
@@ -405,10 +403,10 @@ const createIssueComment = async (comment) => {
       .catch(err => {
         logError(comment, err)
       })
-    issueCommentExists = await isIssueCommentMade(issue, id)
-    while (!issueCommentExists){
+
+    while (!(await isIssueCommentMade(issue, id))){
+      console.log(`Waiting for issue comment ${id} to be created...`)
       await sleep(1000)
-      issueCommentExists = await isIssueCommentMade(issue, id)
     }
   }
 }

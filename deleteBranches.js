@@ -7,6 +7,7 @@ const config = require('./config')
 
 const api = `${config.target.baseUrl}/${config.target.org}/${config.target.repo}`
 
+/* Setting up the headers for the request. */
 const headers = {
   'Accept': 'application/vnd.github.v3+json',
   'User-Agent': 'node.js'
@@ -15,6 +16,11 @@ if (config.target.token) {
   headers['Authorization'] = `token ${config.target.token}`
 }
 
+/**
+ * It reads the state.json file, increments the deletedIssue property, and writes the state.json file
+ * back to disk
+ * @param issue - The issue object from the GitHub API.
+ */
 const bumpIssueCount = (issue) => {
   const state = JSON.parse(fs.readFileSync(`./${config.source.repo}/state.json`))
 
@@ -22,53 +28,51 @@ const bumpIssueCount = (issue) => {
   fs.writeFileSync(`./${config.source.repo}/state.json`, JSON.stringify(state, null, '  '))
 }
 
-const deleteBranch = async (issue) => {
-  const baseUrl = `${api}/git/refs/heads`
-  if (issue.closed_at) {
-    // delete pr base
-    await request.delete({
+/**
+ * It checks if a branch exists
+ * @param issue - the issue object from the webhook
+ * @param which - 'base' or 'head'
+ * @returns A boolean value
+ */
+const isBranchDeleted = async (issue, which) => {
+  const url = `${api}/branches/pr${issue.number}${which}`
+  let exists = false
+  try {
+    await request({
+      method: 'GET',
       headers,
-      url: `${baseUrl}/pr${issue.number}base`,
+      url,
+      json: true,
     })
-    .then(response => {
-      console.log(`Deleted 'pr${issue.number}base'`)
-      return response
-    })
-    .catch(err => {
-      console.log(`Failed to delete 'pr${issue.number}base'`, err.message)
-    })
-
-    // delete pr head
-    await request.delete({
-      headers,
-      url: `${baseUrl}/pr${issue.number}head`,
-    })
-    .then(response => {
-      console.log(`Deleted 'pr${issue.number}head'`)
-      return response
-    })
-    .catch(err => {
-      console.log(`Failed to delete 'pr${issue.number}head'`, err.message)
-    })
+  } catch (error) {
+    exists = true
   }
-  await bumpIssueCount(issue)
-  await sleep(60 * 60 * 1000 * 2 / config.apiCallsPerHour)
+  return exists
 }
 
 /**
- * Takes milliseconds of elapsed time and creates a string like '05m 10s'
- * @param duration milliseconds
+ * It deletes a branch if the issue is closed
+ * @param issue - the issue object from the GitHub API
+ * @param which - 'heads' or 'tags'
  */
-const formatDuration = (duration) => {
-  const seconds = duration / 1000
-  return new Date((seconds % 86400) * 1000)
-    .toUTCString()
-    .replace(/.*(\d{2}):(\d{2}):(\d{2}).*/, '$1h $2m $3s')
-    .replace('00h ', '')
-    .replace('00m ', '')
-    .replace('00s', '')
-    .trim()
+const deleteBranch = async (issue,which) => {
+  const baseUrl = `${api}/git/refs/${which}`
+  if (issue.closed_at) {
+    await request.delete({
+      headers,
+      url: `${baseUrl}/pr${issue.number}${which}`,
+    })
+    .then(response => {
+      console.log(`Deleted 'pr${issue.number}${which}'`)
+      return response
+    })
+    .catch(err => {
+      console.log(`Failed to delete 'pr${issue.number}${which}'`, err.message)
+    })
+  }
+  await bumpIssueCount(issue)
 }
+
 
 const main = async () => {
   const issues = glob.sync(`${config.source.repo}/issues/issue-+([0-9]).json`)
@@ -82,8 +86,16 @@ const main = async () => {
     if (issue.number <= (state.deletedIssue || 0)) {
       console.log(`Skipping ${issue.number}. Already processed`)
     } else {
-      console.log(`ETA: ${formatDuration((issues.length - processed) / config.apiCallsPerHour * 60 * 60 * 1000)}`)
-      await deleteBranch(issue)
+      process.stdout.write(`\r Branches to be deleted remaining:${((comments.length - processed) / comments.length).toFixed(2)}% `);
+      await deleteBranch(issue, "head")
+      while (!(await isBranchDeleted(issue, 'base'))) {
+        console.log(`Waiting for branch pr${issue.number}base to be deleted`)
+        await sleep(1000)
+      }
+      while (!(await isBranchMade(issue, 'head'))) {
+        console.log(`Waiting for branch pr${issue.number}head to be deleted`)
+        await sleep(1000)
+      }
     }
     processed++
   }
