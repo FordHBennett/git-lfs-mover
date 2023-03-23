@@ -2,10 +2,12 @@
 const request = require('request-promise')
 const fs = require('fs-extra')
 const glob = require('glob')
+
 const { sleep } = require('./utils')
 const config = require('./config')
 const createMessage = require('./createMessage')
 const processImages = require('./processImages')
+
 const api = `${config.target.baseUrl}/${config.target.org}/${config.target.repo}`
 if (!fs.pathExistsSync(`./${config.source.repo}/state.json`)) {
   console.log('Creating state file')

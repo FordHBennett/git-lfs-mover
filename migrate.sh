@@ -37,8 +37,41 @@ push_small_commits_in_parallel() {
     done
 
 }
+function display_txt_file() {
+  if [ -f "$1" ] && [ "${1: -4}" == ".txt" ]; then
+    cat "$1"
+  else
+    echo "Error: Please provide a valid .txt file as an argument."
+  fi
+}
+
 main()
 {
+    node install child_process
+    node install fs-extra
+    node install glob
+    node install request-promise
+    node install moment
+    node install yargs
+    node install aws-sdk
+    node install os
+    node install path
+
+    output_src=$(node test.js "source" 2>&1)
+    if "$output_src" | grep -q "Failed!"; then
+        echo "$output_src"
+        exit 1
+    fi
+
+    output_target=$(node test.js target 2>&1)
+    if "$output_target" | grep -q "Failed!"; then
+        echo "$output_target"
+        exit 1
+    fi
+
+    node fetch.js
+    node rewrite.js
+
     clone_src_repo = $(git clone --mirror "$SRC_SSH")
     echo $clone_src_repo
 
@@ -86,8 +119,32 @@ main()
 
     # Push all changes to the remote repository
     git push "$TARGET_SSH" --all
-    git push "$TARGET_SSH" --mirror
     git lfs push "$TARGET_SSH" --all
+    git push "$TARGET_SSH" --mirror
+
+    cd ..
+
+    createBranches=$(node createBranches.js)
+    echo "$createBranches"
+
+    createIssues=$(node createIssues.js)
+    echo "$createIssues"
+
+    createComment=$(node createComments.js)
+    echo "$createComment"
+
+    updateIssue=$(node updateIssues.js)
+    echo "$updateIssue"
+
+    deleteBranches=$(node deleteBranches.js)
+    echo "$deleteBranches"
+
+    createReleases=$(node createReleases.js)
+    echo "$createReleases"
+
+    echo "Migration completed successfully!"
+    display_txt_file "mettons.txt"
+
 }
 
 main
