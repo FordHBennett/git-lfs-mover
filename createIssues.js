@@ -1,21 +1,19 @@
+/* Importing the libraries that we need to use in our code. */
 const request = require('request-promise')
 const fs = require('fs-extra')
 const glob = require('glob')
-
 const { sleep } = require('./utils')
 const config = require('./config')
-const users = require('./users')
 const createMessage = require('./createMessage')
 const processImages = require('./processImages')
-
 const api = `${config.target.baseUrl}/${config.target.org}/${config.target.repo}`
-
 if (!fs.pathExistsSync(`./${config.source.repo}/state.json`)) {
   console.log('Creating state file')
 
   fs.writeFileSync(`./${config.source.repo}/state.json`, '{}')
 }
 
+/* This is setting up the headers for the request. */
 const headers = {
   'Accept': 'application/vnd.github.v3+json',
   'User-Agent': 'node.js'
@@ -24,6 +22,11 @@ if (config.target.token) {
   headers['Authorization'] = `token ${config.target.token}`
 }
 
+/**
+ * It reads the state.json file, increments the issue number, and writes the state.json file back to
+ * disk
+ * @param issue - The issue object from the GitHub API
+ */
 const bumpIssueCount = (issue) => {
   const state = JSON.parse(fs.readFileSync(`./${config.source.repo}/state.json`))
 
@@ -31,6 +34,11 @@ const bumpIssueCount = (issue) => {
   fs.writeFileSync(`./${config.source.repo}/state.json`, JSON.stringify(state, null, '  '))
 }
 
+/**
+ * It logs an error message to the console and exits the program
+ * @param issue - The issue object from the source repo
+ * @param err - The error message returned by the GitHub API
+ */
 const logError = (issue, err) => {
   console.log(`Could not create issue: ${issue.number}`)
   console.log(`Message: ${err}`)
@@ -38,6 +46,31 @@ const logError = (issue, err) => {
   process.exit(1)
 }
 
+/**
+ * It checks if an issue exists in the repository
+ * @param issue - the issue object that we're going to create
+ * @returns A boolean value
+ */
+const isIssueMade = async (issue) => {
+  const url = `${api}/issues/${issue.number}`
+  let exists = true
+  try {
+    await request({
+      method: 'GET',
+      headers,
+      url,
+      json: true,
+    })
+  } catch (error) {
+    exists = false
+  }
+  return exists
+}
+
+/**
+ * It creates an issue on GitHub
+ * @param issue - The issue object from the JSON file
+ */
 const createIssue = async (issue) => {
   console.log(`Creating issue: ${issue.number}`)
   await request({
@@ -59,6 +92,32 @@ const createIssue = async (issue) => {
   })
 }
 
+/**
+ * It checks if a pull request exists for a given issue
+ * @param issue - The issue object that we're checking to see if a pull request has been made for.
+ * @returns A boolean value
+ */
+const isPullRequestMade = async (issue) => {
+  const url = `${api}/repos/${config.target.org}/${config.target.repo}/pulls/${issue.number}`
+  let exists = true
+  try {
+    await request({
+      method: 'GET',
+      headers,
+      url,
+      json: true,
+    })
+  } catch (error) {
+    exists = false
+  }
+  return exists
+}
+
+
+/**
+ * It creates a pull request on the target repository
+ * @param pull - The pull request object from the source repo
+ */
 const createPull = async (pull) => {
   console.log(`Creating pull: ${pull.number}`)
   const body =
@@ -96,12 +155,27 @@ const main = async () => {
     if (issue.number <= (state.issue || 0)) {
       // we already processed this issue
       console.log(`Skipping ${issue.number}. Already processed`)
-    } else if (issue.base) {
+    }
+    else if (issue.base) {
+      /* This is checking if the issue is a pull request. If it is, it creates a pull request on the
+      target repository. */
       await createPull(issue)
-      await sleep(60 * 60 * 1000 / config.apiCallsPerHour)
+      let pullExists = await isIssueMade(issue)
+      while (!pullExists) {
+        console.log(`Waiting for issue ${issue.number} to exist`)
+        await sleep(1000)
+        pullExists = await isIssueMade(issue)
+      }
     } else {
+      /* Checking if the issue is a pull request. If it is, it creates a pull request on the
+      target repository. */
       await createIssue(issue)
-      await sleep(60 * 60 * 1000 / config.apiCallsPerHour)
+      let issueExists = await isPullRequestMade(issue)
+      while (!issueExists) {
+        console.log(`Waiting for pull ${issue.number} to exist`)
+        await sleep(1000)
+        issueExists = await isPullRequestMade(issue)
+      }
     }
   }
 }
