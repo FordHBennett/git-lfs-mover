@@ -1,16 +1,16 @@
 const request = require('request-promise')
-const moment = require('moment')
 const fs = require('fs-extra')
-const glob = require('glob')
 
 const { sleep } = require('./utils')
 const config = require('./config')
-const users = require('./users')
 const createMessage = require('./createMessage')
 const processImages = require('./processImages')
 
 const api = `${config.target.baseUrl}/${config.target.org}/${config.target.repo}`
+//dummy commit to use when the commit is not found
+const dummyCommit =  `af38187693cd4b51d19d07681e962c0f74eb662b`
 
+/* This is setting up the headers for the request. */
 const headers = {
   'Accept': 'application/vnd.github.v3+json',
   'User-Agent': 'node.js'
@@ -19,6 +19,12 @@ if (config.target.token) {
   headers['Authorization'] = `token ${config.target.commentToken || config.target.token}`
 }
 
+/**
+ * It makes a POST request to the given url with the given body, and returns the response
+ * @param url - The URL to make the request to.
+ * @param body - The body of the request.
+ * @returns A promise
+ */
 const post = async (url, body) => {
   return request({
     method: 'POST',
@@ -30,9 +36,11 @@ const post = async (url, body) => {
 }
 
 let commits = []
+
 /**
- * Figure out if a commit exists
- * @param {string} sha
+ * It checks if a commit exists in the commits.json file
+ * @param sha - The commit SHA
+ * @returns A boolean value.
  */
 const commitExists = async (sha) => {
   if (!commits.length) {
@@ -42,6 +50,12 @@ const commitExists = async (sha) => {
   return !!commits.find(commit => commit.sha === sha)
 }
 
+/**
+ * It takes an ID and a boolean, and if the boolean is true, it adds the ID to the state file
+ * @param id - The id of the comment to set as processed
+ * @param [newId=true] - If the comment is a new comment, it will be set to true. If it's an edited
+ * comment, it will be set to false.
+ */
 const setCommentProcessed = async (id, newId = true) => {
   console.log(`Setting ${id} as processed`)
   const state = JSON.parse(await fs.readFile(`./${config.source.repo}/state.json`))
@@ -51,6 +65,13 @@ const setCommentProcessed = async (id, newId = true) => {
   await fs.writeFile(`./${config.source.repo}/state.json`, JSON.stringify(state, null, '  '))
 }
 
+/**
+ * It takes an id and a boolean, and if the boolean is true, it sets the id as processed in the
+ * state.json file
+ * @param id - The id of the review.
+ * @param [newId=true] - If the review is a new review, then we'll set this to true. If it's an
+ * existing review, then we'll set this to false.
+ */
 const setReviewProcessed = async (id, newId = true) => {
   console.log(`Setting ${id} as processed`)
   const state = JSON.parse(await fs.readFile(`./${config.source.repo}/state.json`))
@@ -60,26 +81,51 @@ const setReviewProcessed = async (id, newId = true) => {
   await fs.writeFile(`./${config.source.repo}/state.json`, JSON.stringify(state, null, '  '))
 }
 
+/**
+ * It checks if a comment has already been processed
+ * @param id - The id of the comment to check
+ * @returns A boolean value.
+ */
 const isCommentProcessed = async (id) => {
   const state = JSON.parse(await fs.readFile(`./${config.source.repo}/state.json`))
 
   return !!(state.comments || {})[id]
 }
 
+/**
+ * It reads the state file, and returns true if the review with the given ID has already been processed
+ * @param id - The ID of the review.
+ * @returns A boolean value.
+ */
 const isReviewProcessed = async (id) => {
   const state = JSON.parse(await fs.readFile(`./${config.source.repo}/state.json`))
 
   return !!(state.reviews || {})[id]
 }
 
+/**
+ * If the comment has a state property, it's a review comment, if it has a pull_request_url property,
+ * it's a pull request comment, and if it has a commit_id property but no pull_request_url property,
+ * it's a commit comment
+ */
 const isReviewComment = comment => !!comment.state
 const isPullRequestComment = comment => !!comment.pull_request_url
 const isCommitComment = comment => !!comment.commit_id && !comment.pull_request_url
 
+/**
+ * It logs an error message to the console
+ * @param comment - The comment object that was created
+ * @param err - The error message
+ */
 const logError = (comment, err) => {
   console.log(`Could not create comment: ${comment.id}`)
   console.log(`Message: ${err}`)
 }
+/**
+ * It creates a comment
+ * @param comment - The comment object from the GitHub API
+ * @param comments - The comments array from the GitHub API response
+ */
 
 const createComment = async (comment, comments) => {
   const { id } = comment
@@ -94,6 +140,11 @@ const createComment = async (comment, comments) => {
   }
 }
 
+/**
+ * It takes a state and returns an event
+ * @param state - The current state of the pull request.
+ * @returns The event that is being returned is the event that is being passed in.
+ */
 const getEvent = (state) => {
   switch(state) {
     case 'APPROVED':
@@ -105,6 +156,11 @@ const getEvent = (state) => {
   }
 }
 
+/**
+ * It creates a review on a pull request if the review has not already been processed and the review is
+ * not a comment or a dismissed review
+ * @param comment - The comment object from the GitHub API
+ */
 const createReview = async (comment) => {
   const { id } = comment
 
@@ -140,6 +196,35 @@ const createReview = async (comment) => {
   }
 }
 
+/**
+ * It checks if a comment exists on a pull request
+ * @param pullRequestId - The ID of the pull request you want to check.
+ * @param commentId - The ID of the comment you want to check.
+ * @returns A boolean value
+ */
+const isPullRequestCommentMade = async (pullRequestId, commentId) => {
+  const url = `${api}/repos/${config.target.org}/${config.target.repo}/pulls/${pullRequestId}/comments/${commentId}`
+  let exists = true
+  try {
+    await request({
+      method: 'GET',
+      headers,
+      url,
+      json: true,
+    })
+  } catch (error) {
+    exists = false
+  }
+  return exists
+}
+
+
+/**
+ * It checks if the comment has already been processed, if not it processes the comment and adds it to
+ * the pull request
+ * @param comment - The comment object from the source repo
+ * @param [comments] - An array of comments that are replies to the comment being created.
+ */
 const createPullRequestComment = async (comment, comments = []) => {
   const { id } = comment
   const issueNumber = comment.pull_request_url.split('/').pop()
@@ -191,10 +276,42 @@ const createPullRequestComment = async (comment, comments = []) => {
             await setCommentProcessed(id, true)
           })
       })
-      await sleep(60 * 60 * 1000 / config.apiCallsPerHour)
+    pullCommentExists = await isPullRequestCommentMade(comment.pull_request_review_id, comment.commentId)
+    while (!pullCommentExists) {
+      await sleep(1000)
+      pullCommentExists = await isPullRequestCommentMade(comment.pull_request_review_id, comment.commentId)
+    }
   }
 }
 
+/**
+ * It checks if a comment exists on a commit
+ * @param commitSha - The commit SHA of the commit you want to check for a comment.
+ * @param commentId - The ID of the comment you want to check.
+ * @returns A boolean value.
+ */
+const isCommitCommentMade = async (commitSha, commentId) => {
+  const url = `${api}/repos/${config.target.org}/${config.target.repo}/commits/${commitSha}/comments/${commentId}`
+  let exists = true
+  try {
+    await request({
+      method: 'GET',
+      headers,
+      url,
+      json: true,
+    })
+  } catch (error) {
+    exists = false
+  }
+  return exists
+}
+
+
+/**
+ * It checks if the comment has already been processed, if not, it checks if the commit still exists,
+ * if it does, it adds the comment to the commit, if not, it adds the comment to a dummy commit
+ * @param comment - The comment object from the database
+ */
 const createCommitComment = async (comment) => {
   const { id } = comment
 	const sha = comment.commit_id;
@@ -204,7 +321,14 @@ const createCommitComment = async (comment) => {
   if (await isCommentProcessed(id)) {
     console.log(`Comment ${id} already processed`)
   } else if (!await commitExists(sha)) {
-    console.log(`Commit ${sha} no longer exists`)
+    //console.log(`Commit ${sha} no longer exists`)
+    console.log(`Adding comment ${id} to ${url}`)
+    const body = {
+      body: `${createMessage(comment)}\n\n\n${commentBody}`,
+      dummyCommit,
+      path: comment.path,
+      position: comment.position
+    }
   } else {
     console.log(`Adding comment ${id} to ${url}`)
     const body = {
@@ -224,10 +348,41 @@ const createCommitComment = async (comment) => {
         logError(comment, err)
       })
 
-    await sleep(60 * 60 * 1000 / config.apiCallsPerHour)
+    commitCommentExists = await isCommitCommentMade(sha, id)
+    while (!commitCommentExists) {
+      await sleep(1000)
+      commitCommentExists = await isCommitCommentMade(sha, id)
+    }
   }
 }
 
+/**
+ * It checks if a comment exists on an issue
+ * @param issue - the issue object from the GitHub API
+ * @param commentId - The ID of the comment you want to check for.
+ * @returns A boolean value.
+ */
+const isIssueCommentMade = async (issue, commentId) => {
+  const url = `${api}/repos/${config.target.org}/${config.target.repo}/issues/${issue.number}/comments/${commentId}`
+  let exists = true
+  try {
+    await request({
+      method: 'GET',
+      headers,
+      url,
+      json: true,
+    })
+  } catch (error) {
+    exists = false
+  }
+  return exists
+}
+
+
+/**
+ * It checks if the comment has already been processed, if not it adds it to the issue
+ * @param comment - The comment object from the GitHub API
+ */
 const createIssueComment = async (comment) => {
   const { id } = comment
   const issueNumber = comment.issue_url.split('/').pop()
@@ -250,24 +405,12 @@ const createIssueComment = async (comment) => {
       .catch(err => {
         logError(comment, err)
       })
-
-    await sleep(60 * 60 * 1000 / config.apiCallsPerHour)
+    issueCommentExists = await isIssueCommentMade(issue, id)
+    while (!issueCommentExists){
+      await sleep(1000)
+      issueCommentExists = await isIssueCommentMade(issue, id)
+    }
   }
-}
-
-/**
- * Takes milliseconds of elapsed time and creates a string like '05m 10s'
- * @param duration milliseconds
- */
-const formatDuration = (duration) => {
-  const seconds = duration / 1000
-  return new Date((seconds % 86400) * 1000)
-    .toUTCString()
-    .replace(/.*(\d{2}):(\d{2}):(\d{2}).*/, '$1h $2m $3s')
-    .replace('00h ', '')
-    .replace('00m ', '')
-    .replace('00s', '')
-    .trim()
 }
 
 const main = async () => {
@@ -284,12 +427,12 @@ const main = async () => {
 
   let processed = 0
   for (let comment of comments) {
-    console.log(`ETA: ${formatDuration((comments.length - processed) / config.apiCallsPerHour * 60 * 60 * 1000)}`)
+    process.stdout.write(`\r Comments remaining:${((comments.length - processed) / comments.length).toFixed(2)}% `);
     await createComment(comment, comments)
     processed++
   }
 
-  // await fs.writeFile(`${config.source.repo}/all-comments.json`, JSON.stringify(comments, null, '  '))
+
 }
 
 main().catch(console.error)

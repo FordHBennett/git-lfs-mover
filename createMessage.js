@@ -3,6 +3,7 @@ const moment = require('moment')
 const users = require('./users')
 const config = require('./config')
 
+/* Formatting the date. */
 const shortFormat = 'MMM D, YYYY'
 const longFormat = 'dddd, MMMM Do YYYY, h:mm:ss a Z'
 const formatDate = function formatDate(date) {
@@ -12,6 +13,11 @@ const formatDate = function formatDate(date) {
 	return html;
 }
 
+/**
+ * If the target has an avatarUrl, and the user is in the users array, return the avatarUrl with the
+ * user's id. Otherwise, return the default avatar
+ * @returns The avatar url of the user.
+ */
 const getAvatarUrl = user => {
   if (config.target.avatarUrl && users[user.login]) {
     return config.target.avatarUrl.replace('{id}', users[user.login].id)
@@ -20,6 +26,11 @@ const getAvatarUrl = user => {
   }
 }
 
+/**
+ * If the user is in the `users` object, return the mapped URL, otherwise return the user's GitHub URL
+ * @returns the user's html_url if the user is not in the users object. If the user is in the users
+ * object, the function is returning the target property of the user.
+ */
 const getUserUrl = user => {
   const mappedUser = users[user.login]
   if (mappedUser) {
@@ -29,6 +40,10 @@ const getUserUrl = user => {
   }
 }
 
+/**
+ * It takes a user object and returns the username of the user
+ * @returns The username of the user.
+ */
 const getUsername = user => {
   const mappedUser = users[user.login]
   if (mappedUser) {
@@ -38,6 +53,12 @@ const getUsername = user => {
   }
 }
 
+/**
+ * It takes an issue object and returns a string that contains the issue's creation date, author, and
+ * whether it was merged or closed
+ * @param issue - The issue object from the GitHub API.
+ * @returns A string
+ */
 const createMessage = (issue) => {
 	const creation = formatDate(issue.created_at);
 
