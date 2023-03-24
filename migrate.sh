@@ -2,13 +2,13 @@
 shopt -s nullglob dotglob
 
 # Source repo ssh
-readonly SRC_SSH=""
+readonly SRC_SSH="git@github.com:username/source_repo.git"
 # Target repo ssh
-readonly TARGET_SSH=""
-# Source repo local directory name
-readonly REPO_DIR_NAME=""
+readonly TARGET_SSH="git@github.com:username/target_repo.git"
+# Source repo directory path
+readonly REPO_DIR_NAME="/path/to/local/source/directory"
 # Source repo mirror path
-readonly REPO_PATH=""
+readonly REPO_PATH="/path/to/local/source/directory.git"
 
 # Pushing small commits to the given branch.
 push_small_commits()
