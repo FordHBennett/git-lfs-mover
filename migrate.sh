@@ -2,13 +2,13 @@
 shopt -s nullglob dotglob
 
 # Source repo ssh
-readonly SRC_SSH="git@github.tamu.edu:SpaceCRAFT/Platform.git"
+readonly SRC_SSH=""
 # Target repo ssh
-readonly TARGET_SSH="https://github.com/SimDynamX/SC_Platform.git"
+readonly TARGET_SSH=""
 # Source repo local directory name
-readonly REPO_DIR_NAME="Platform"
+readonly REPO_DIR_NAME=""
 # Source repo mirror path
-readonly REPO_PATH="Platform.git/"
+readonly REPO_PATH=""
 
 # Pushing small commits to the given branch.
 push_small_commits()
@@ -35,16 +35,14 @@ push_small_commits_in_parallel() {
     for branch in "${arr[@]}"; do
         push_small_commits "$branch"
     done
-
 }
-function display_txt_file() {
+display_txt_file() {
   if [ -f "$1" ] && [ "${1: -4}" == ".txt" ]; then
     cat "$1"
   else
     echo "Error: Please provide a valid .txt file as an argument."
   fi
 }
-
 main()
 {
     node install child_process
