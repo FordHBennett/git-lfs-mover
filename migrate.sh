@@ -1,14 +1,19 @@
 #!/bin/bash
 shopt -s nullglob dotglob
 
+# Import configuration values from bash_config.sh
+source bash_config.sh
+
 # Source repo ssh
-readonly SRC_SSH="git@github.com:username/source_repo.git"
+readonly SRC_SSH
 # Target repo ssh
-readonly TARGET_SSH="git@github.com:username/target_repo.git"
+readonly TARGET_SSH
 # Source repo directory path
-readonly REPO_DIR_NAME="/path/to/local/source/directory"
+readonly REPO_DIR
 # Source repo mirror path
-readonly REPO_PATH="/path/to/local/source/directory.git"
+readonly REPO_MIRROR
+
+
 
 # Pushing small commits to the given branch.
 push_small_commits()
@@ -17,7 +22,7 @@ push_small_commits()
     printf "Pushing small commits to: %s\n" "$branch"
 
     # Reverse the order of commits and push them one by one
-    small_push=$(git rev-list --reverse "$branch" | xargs -I{} git push --force "$TARGET_SSH" +{}:refs/heads/"$branch")
+    small_push=$(git rev-list --reverse "$branch" | xargs -I{} sh -c 'git push --force "$TARGET_SSH" +{}:refs/heads/"$branch" && sleep 1')
     echo "$small_push"
 
     # Push tags related to the given branch
@@ -50,10 +55,10 @@ main()
     clone_src_repo = $(git clone --mirror "$SRC_SSH")
     echo $clone_src_repo
 
-    mkdir "$REPO_DIR_NAME"
-    mv "$REPO_PATH $REPO_DIR_NAME/.git"
-    echo "moving $REPO_PATH to $REPO_DIR_NAME/.git"
-    cd "$REPO_DIR_NAME"
+    mkdir "$REPO_DIR"
+    mv "$REPO_MIRROR $REPO_DIR/.git"
+    echo "moving $REPO_MIRROR to $REPO_DIR/.git"
+    cd "$REPO_DIR"
     git init
     git config --bool core.bare false # Set the bare option to false to enable working with the repository
     echo "git config --bool core.bare false"
@@ -83,21 +88,22 @@ main()
 
     num_branches=0
     for ((num_branches=0; num_branches<${#filtered_branches[@]}; num_branches++)); do
-    if ((num_branches % 3 == 0 || num_branches == 0)); then
-        arr=()\n    arr+=("${filtered_branches[num_branches]}")
-        arr+=("${filtered_branches[num_branches+1]}")
-        arr+=("${filtered_branches[num_branches+2]}")
-        push_small_commits_in_parallel "${arr[@]}" &
-    fi
+#    if ((num_branches % 3 == 0 || num_branches == 0)); then
+#        arr=()\n    arr+=("${filtered_branches[num_branches]}")
+#        arr+=("${filtered_branches[num_branches+1]}")
+#        arr+=("${filtered_branches[num_branches+2]}")
+#        push_small_commits_in_parallel "${arr[@]}" &
+#    fi
+    push_small_commits "${filtered_branches[num_branches]}"
     done
     wait
 
-    if ((num_branches % 3 == 1)); then
-    push_small_commits "${filtered_branches[num_branches-1]}"
-    elif ((num_branches % 3 == 2)); then
-    push_small_commits "${filtered_branches[num_branches-2]}"
-    push_small_commits "${filtered_branches[num_branches-1]}"
-    fi
+    # if ((num_branches % 3 == 1)); then
+    # push_small_commits "${filtered_branches[num_branches-1]}"
+    # elif ((num_branches % 3 == 2)); then
+    # push_small_commits "${filtered_branches[num_branches-2]}"
+    # push_small_commits "${filtered_branches[num_branches-1]}"
+    # fi
 
 
     # Push all changes to the remote repository
