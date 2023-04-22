@@ -45,31 +45,8 @@ display_txt_file() {
 }
 main()
 {
-    node install child_process
-    node install fs-extra
-    node install glob
-    node install request-promise
-    node install moment
-    node install yargs
-    node install aws-sdk
-    node install os
-    node install path
 
-    output_src=$(node test.js "source" 2>&1)
-    if "$output_src" | grep -q "Failed!"; then
-        echo "$output_src"
-        exit 1
-    fi
-
-    output_target=$(node test.js target 2>&1)
-    if "$output_target" | grep -q "Failed!"; then
-        echo "$output_target"
-        exit 1
-    fi
-
-    node fetch.js
-    node rewrite.js
-
+    #TODO: Create a npm script to install all dependencies
     clone_src_repo = $(git clone --mirror "$SRC_SSH")
     echo $clone_src_repo
 
@@ -95,25 +72,33 @@ main()
     current_dir=$("pwd")
     echo "$current_dir"
 
+    node fetch.js
+    node rewrite.js
+
     IFS=$'\n' filtered_branches=($(git branch -a | tr -d " " | grep -vE "^pr.*head$" | sed "s/remotes\/origin\///" | grep -v "^\s*$" | sort | uniq | sed "s/^master$/&\n/" | sed "1s/^/master\n/"))
 
     export -f push_small_commits_in_parallel
 
     git checkout master
 
-# This is a parallelization of the push_small_commits function.
-    for i in "${!filtered_branches[@]}"; do
-        if (($i % 5 == 0 || $i == 0)); then
-            arr=()
-            arr+=("${filtered_branches[i]}")
-            arr+=("${filtered_branches[i+1]}")
-            arr+=("${filtered_branches[i+2]}")
-            arr+=("${filtered_branches[i+3]}")
-            arr+=("${filtered_branches[i+4]}")
-            push_small_commits_in_parallel "${arr[@]}"&
-        fi
+    num_branches=0
+    for ((num_branches=0; num_branches<${#filtered_branches[@]}; num_branches++)); do
+    if ((num_branches % 3 == 0 || num_branches == 0)); then
+        arr=()\n    arr+=("${filtered_branches[num_branches]}")
+        arr+=("${filtered_branches[num_branches+1]}")
+        arr+=("${filtered_branches[num_branches+2]}")
+        push_small_commits_in_parallel "${arr[@]}" &
+    fi
     done
     wait
+
+    if ((num_branches % 3 == 1)); then
+    push_small_commits "${filtered_branches[num_branches-1]}"
+    elif ((num_branches % 3 == 2)); then
+    push_small_commits "${filtered_branches[num_branches-2]}"
+    push_small_commits "${filtered_branches[num_branches-1]}"
+    fi
+
 
     # Push all changes to the remote repository
     git push "$TARGET_SSH" --all

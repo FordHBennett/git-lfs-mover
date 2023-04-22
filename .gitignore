@@ -1,8 +1,7 @@
 
 node_modules/
-package-lock.json
-package.json
 .DS_Store
 config.js
 s3Config.json
 .vscode/settings.json
+package-lock.json
