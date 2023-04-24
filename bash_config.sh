@@ -1,14 +1,14 @@
 # Source repo ssh
-SRC_SSH="git@github.tamu.edu:SpaceCRAFT/Platform.git"
+SRC_SSH=""
 
 # Target repo ssh
-TARGET_SSH="git@github.com:SimDynamX/SC_Platform.git"
+TARGET_SSH=""
 
 # Source repo directory path
-REPO_DIR="Platform"
+REPO_DIR=""
 
 # Source repo mirror path
-REPO_MIRROR="Platform.git"
+REPO_MIRROR="$REPO_DIR.git"
 
 #Testing the source config
 src_test(){
