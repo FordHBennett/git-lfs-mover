@@ -24,16 +24,16 @@ if (config.target.token) {
  * @param issue - the issue object
  * @param which - This is the branch name.
  */
-const createBranch = async (issue, which) => {
-  const ref = `refs/heads/pr${issue.number}${which}`
-  console.log(issue.which.sha);
+const createBranch = async (issue, which, which_str) => {
+  const ref = `refs/heads/pr${issue.number}${which_str}`
+  console.log(which.sha);
   await request({
     method: 'POST',
     headers,
     url: `${api}/git/refs`,
     body: {
       ref,
-      sha: issue.which.sha,
+      sha: which.sha,
     },
     json: true,
   }).catch(err => {
@@ -47,8 +47,8 @@ const createBranch = async (issue, which) => {
  * @param issue - the issue object from the GitHub API
  * @returns A boolean value
  */
-const isBranchMade = async (issue, which) => {
-  const url = `${api}/branches/pr${issue.number}${which}`
+const isBranchMade = async (issue, which_str) => {
+  const url = `${api}/branches/pr${issue.number}${which_str}`
   let exists = true
   try {
     await request({
@@ -76,7 +76,7 @@ const main = async () => {
 /* Checking if the issue has a base. If it does, it will create a branch for the issue. */
     if (issue.base) {
       console.log(`Creating branch for PR-${issue.number}`)
-      await createBranch(issue, 'base')
+      await createBranch(issue, issue.base, 'base')
       while (!(isBranchMade(issue, 'base'))) {
         console.log(`Waiting for branch pr${issue.number}base to exist`)
         await sleep(1000)
@@ -86,7 +86,7 @@ const main = async () => {
 /* Creating a branch for the head of the issue. */
     else if (issue.head) {
       console.log(`Creating branch for PR-${issue.number}`)
-      await createBranch(issue,'head')
+      await createBranch(issue,issue.head, 'head')
       while (!(await isBranchMade(issue, 'head'))) {
         console.log(`Waiting for branch pr${issue.number}head to exist`)
         await sleep(1000)
