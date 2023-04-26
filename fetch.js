@@ -7,7 +7,7 @@ const { spawnSync } = require("child_process");
 const config = require('./config')
 const repo = config.source.repo
 const source = `${config.source.baseUrl}/${config.source.org}/${config.source.repo}`
-const repoPath = `${config.source.repo}/.git`;
+const repoPath = `${config.source.repo}.git`;
 const pageSize = 100
 
 /* This is setting up the headers for the request. */
@@ -32,6 +32,7 @@ const getPage = (listId) => async (page) => {
     url: `${source}/${listId}?state=all&per_page=${pageSize}&page=${page}`
   }))
 }
+
 
 /**
  * "Fetch a list of items from a paginated API, and return the results as a single array."
@@ -59,6 +60,50 @@ const fetchList = async (listId) => {
 
   return results
 }
+// for (i = 0; i < commitsData.length; i++) {
+//   if (isBadObject(commitsData[i].sha)) {
+//     for (j = 0; j < commitsData[i].parents.length; j++) {
+//       if (isBadObject(commitsData[i].parents[j].sha)) {
+//         for (k = 0; k < commitsData[i].commit.tree.length; k++) {
+//           if (isBadObject(commitsData[i].commit.tree[k].sha)) {
+//             console.log(`You're fucked dude idk`);
+//           }
+//           else {
+//             console.log(`Replacing commit.sha with commit.tree.sha`);
+//             commitsData[i].sha = commitsData[i].commit.tree[k].sha;
+//           }
+//         }
+//       }
+//       else {
+//         console.log(`Replacing commit.sha with commit.tree.sha`);
+//         commitsData[i].sha = commitsData[i].parents[j].sha;
+//         for (k = 0; k < commitsData[i].commit.tree.length; k++) {
+//           if (isBadObject(commitsData[i].commit.tree[k].sha)) {
+//             console.log(`Replacing commit.tree.sha with commit.parents.sha`);
+//             commitsData[i].commit.tree[k].sha = commitsData[i].parents[j].sha;
+//           }
+//         }
+//       }
+//     }
+//   }
+//   else {
+//     for (j = 0; j < commitsData[i].parents.length; j++) {
+//       if (isBadObject(commitsData[i].parents[j].sha)) {
+//         console.log(`Replacing commit.parents.sha with commit.sha`);
+//         commitsData[i].parents[j].sha = commitsData[i].sha;
+//       }
+//     }
+//     for (k = 0; k < commitsData[i].commit.tree.length; k++) {
+//       if (isBadObject(commitsData[i].commit.tree[k].sha)) {
+//         console.log(`Replacing commit.tree.sha with commit.sha`);
+//         commitsData[i].commit.tree[k].sha = commitsData[i].sha;
+//       }
+//     }
+//   }
+// }
+
+// return commitsData
+// }
 
 /**
  * It returns true if the result of a git command contains the string "fatal: bad object"

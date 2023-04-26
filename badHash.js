@@ -24,7 +24,7 @@ function isCommitHashBad(sha, repoPath) {
  * and checks if they are bad
  */
 async function main() {
-  const repoPath = `${config.source.repo}/.git`;
+  const repoPath = `${config.source.repo}.git`;
 
   const issuesFiles = glob.sync(`${config.source.repo}/issues/issue-+([0-9]).json`);
   const issues = await Promise.all(issuesFiles.map(async (file) => JSON.parse(await fs.readFile(file))));
