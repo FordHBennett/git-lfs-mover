@@ -25,7 +25,7 @@ const uploadImage = (bucket, contentType) => async (contents) => {
       ACL: 'public-read'
     }, (err, data) => {
       if (err) {
-        reject(err)
+        reject(err, data)
       } else {
         resolve(`https://${bucket}.s3.amazonaws.com/${filename}`)
       }

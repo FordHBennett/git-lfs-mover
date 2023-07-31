@@ -75,6 +75,8 @@ const isIssueMade = async (issue) => {
  */
 const createIssue = async (issue) => {
   console.log(`Creating issue: ${issue.number}`)
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   await request({
     method: 'POST',
     headers,
@@ -89,18 +91,25 @@ const createIssue = async (issue) => {
     bumpIssueCount(issue)
     return response
   })
-  .catch(err => {
-    logError(issue, err)
+  .catch(async err => {
+    console.log('Error creating issue:', err);
+
+    await delay(10 * 60 * 1000); // Delay for 10 minutes
+
+    console.log('Retrying...');
+    await createIssue(issue);
   })
 }
 
+//isPullRequestMade is the same function as isIssueMade
+//In the future, we can refactor this to be one function
 /**
  * It checks if a pull request exists for a given issue
  * @param issue - The issue object that we're checking to see if a pull request has been made for.
  * @returns A boolean value
  */
 const isPullRequestMade = async (issue) => {
-  const url = `${api}/repos/${config.target.org}/${config.target.repo}/pulls/${issue.number}`
+  const url = `${api}/issues/${issue.number}`
   let exists = true
   try {
     await request({
@@ -122,6 +131,7 @@ const isPullRequestMade = async (issue) => {
  */
 const createPull = async (pull) => {
   console.log(`Creating pull: ${pull.number}`)
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const body =
   {
     title: pull.title,
@@ -143,7 +153,12 @@ const createPull = async (pull) => {
     return response
   })
   .catch(async (err) => {
-    logError(pull, err)
+    console.log('Error creating pull:', err);
+
+    await delay(10 * 60 * 1000); // Delay for 10 minutes
+
+    console.log('Retrying...');
+    await createPull(pull);
   })
 }
 
@@ -158,25 +173,27 @@ const main = async () => {
       // we already processed this issue
       console.log(`Skipping ${issue.number}. Already processed`)
     }
-    else if (issue.base) {
+    else if (issue.html_url.includes('pull')) {
       /* This is checking if the issue is a pull request. If it is, it creates a pull request on the
       target repository. */
       await createPull(issue)
-      let pullExists = await isIssueMade(issue)
+      await sleep(200)
+      let pullExists = await isPullRequestMade(issue)
       while (!pullExists) {
         console.log(`Waiting for issue ${issue.number} to exist`)
-        await sleep(1000)
-        pullExists = await isIssueMade(issue)
+        await sleep(200)
+        pullExists = await isPullRequestMade(issue)
       }
     } else {
       /* Checking if the issue is a pull request. If it is, it creates a pull request on the
       target repository. */
       await createIssue(issue)
-      let issueExists = await isPullRequestMade(issue)
+      await sleep(200)
+      let issueExists = await isIssueMade(issue)
       while (!issueExists) {
         console.log(`Waiting for pull ${issue.number} to exist`)
-        await sleep(1000)
-        issueExists = await isPullRequestMade(issue)
+        await sleep(200)
+        issueExists = await isIssueMade(issue)
       }
     }
   }

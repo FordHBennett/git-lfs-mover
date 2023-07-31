@@ -34,41 +34,51 @@ const bumpIssueCount = (issue) => {
  * @param which - 'base' or 'head'
  * @returns A boolean value
  */
-const isBranchDeleted = async (issue, which) => {
-  const url = `${api}/branches/pr${issue.number}${which}`
-  let exists = false
-  try {
-    await request({
-      method: 'GET',
-      headers,
-      url,
-      json: true,
-    })
-  } catch (error) {
-    exists = true
-  }
-  return exists
-}
+// const isBranchDeleted = async (issue, which) => {
+//   const url = `${api}/branches/pr${issue.number}${which}`
+//   let exists = false
+//   try {
+//     await request({
+//       method: 'GET',
+//       headers,
+//       url,
+//       json: true,
+//     })
+//   } catch (error) {
+//     exists = true
+//   }
+//   return exists
+// }
 
-/**
- * It deletes a branch if the issue is closed
- * @param issue - the issue object from the GitHub API
- * @param which - 'heads' or 'tags'
- */
-const deleteBranch = async (issue,which) => {
-  const baseUrl = `${api}/git/refs/${which}`
+
+const deleteBranch = async (issue) => {
+  const baseUrl = `${api}/git/refs/heads`
   if (issue.closed_at) {
+    // delete pr base
     await request.delete({
       headers,
-      url: `${baseUrl}/pr${issue.number}${which}`,
+      url: `${baseUrl}/pr${issue.number}base`,
     })
-    .then(response => {
-      console.log(`Deleted 'pr${issue.number}${which}'`)
-      return response
+      .then(response => {
+        console.log(`Deleted 'pr${issue.number}base'`)
+        return response
+      })
+      .catch(err => {
+        console.log(`Failed to delete 'pr${issue.number}base'`, err.message)
+      })
+
+    // delete pr head
+    await request.delete({
+      headers,
+      url: `${baseUrl}/pr${issue.number}head`,
     })
-    .catch(err => {
-      console.log(`Failed to delete 'pr${issue.number}${which}'`, err.message)
-    })
+      .then(response => {
+        console.log(`Deleted 'pr${issue.number}head'`)
+        return response
+      })
+      .catch(err => {
+        console.log(`Failed to delete 'pr${issue.number}head'`, err.message)
+      })
   }
   await bumpIssueCount(issue)
 }
@@ -86,16 +96,17 @@ const main = async () => {
     if (issue.number <= (state.deletedIssue || 0)) {
       console.log(`Skipping ${issue.number}. Already processed`)
     } else {
-      process.stdout.write(`\r Branches to be deleted remaining:${((comments.length - processed) / comments.length).toFixed(2)}% `);
-      await deleteBranch(issue, "head")
-      while (!(await isBranchDeleted(issue, 'base'))) {
-        console.log(`Waiting for branch pr${issue.number}base to be deleted`)
-        await sleep(1000)
-      }
-      while (!(await isBranchMade(issue, 'head'))) {
-        console.log(`Waiting for branch pr${issue.number}head to be deleted`)
-        await sleep(1000)
-      }
+      process.stdout.write(`\r Branches to be deleted remaining:${((issues.length - processed) / issues.length).toFixed(2)}% `);
+      await deleteBranch(issue)
+      await sleep(1000)
+      // while (!(await isBranchDeleted(issue, 'base'))) {
+      //   console.log(`Waiting for branch pr${issue.number}base to be deleted`)
+      //   await sleep(1000)
+      // }
+      // while (!(await isBranchMade(issue, 'head'))) {
+      //   console.log(`Waiting for branch pr${issue.number}head to be deleted`)
+      //   await sleep(1000)
+      // }
     }
     processed++
   }

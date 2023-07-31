@@ -7,7 +7,7 @@ const { spawnSync } = require("child_process");
 const config = require('./config')
 const repo = config.source.repo
 const source = `${config.source.baseUrl}/${config.source.org}/${config.source.repo}`
-const repoPath = `${config.source.repo}.git`;
+const repoPath = `${config.source.repo}/.git`;
 const pageSize = 100
 
 /* This is setting up the headers for the request. */

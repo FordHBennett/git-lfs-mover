@@ -226,6 +226,7 @@ const isPullRequestCommentMade = async (pullRequestId, commentId) => {
  * @param [comments] - An array of comments that are replies to the comment being created.
  */
 const createPullRequestComment = async (comment, comments = []) => {
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   const { id } = comment
   const issueNumber = comment.pull_request_url.split('/').pop()
   const url = `${api}/pulls/${issueNumber}/comments`
@@ -271,15 +272,16 @@ const createPullRequestComment = async (comment, comments = []) => {
               console.log(`Commit ${comment.commit_id} no longer exists (someone did a force push)`)
               console.log('Skipping')
             } else {
-              logError(comment, err)
+              console.log('Error creating issue:', err);
+
+              await delay(10 * 60 * 500); // Delay for 5 minutes
+
+              console.log('Retrying...');
+              await createPullRequestComment(comment, comments);
             }
             await setCommentProcessed(id, true)
           })
       })
-    while (!(isPullRequestCommentMade(comment.pull_request_review_id, comment.commentId))) {
-      console.log(`Waiting for pull comment ${comment.pull_request_review_id} to be created...`)
-      await sleep(1000)
-    }
   }
 }
 
@@ -312,6 +314,7 @@ const isCommitCommentMade = async (commitSha, commentId) => {
  * @param comment - The comment object from the database
  */
 const createCommitComment = async (comment) => {
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   const { id } = comment
 	const sha = comment.commit_id;
   const url = `${api}/commits/${sha}/comments`
@@ -343,14 +346,14 @@ const createCommitComment = async (comment) => {
 
         return response
       })
-      .catch(err => {
-        logError(comment, err)
-      })
+      .catch(async err => {
+        console.log('Error creating issue:', err);
 
-    while (!(await isCommitCommentMade(sha, id))) {
-      console.log(`Waiting for comment ${id} to be created...`)
-      await sleep(1000)
-    }
+        await delay(10 * 60 * 500); // Delay for 10 minutes
+
+        console.log('Retrying...');
+        await createCommitComment(comment);
+      })
   }
 }
 
@@ -382,6 +385,8 @@ const isIssueCommentMade = async (issue, commentId) => {
  * @param comment - The comment object from the GitHub API
  */
 const createIssueComment = async (comment) => {
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   const { id } = comment
   const issueNumber = comment.issue_url.split('/').pop()
   const url = `${api}/issues/${issueNumber}/comments`
@@ -400,14 +405,16 @@ const createIssueComment = async (comment) => {
 
         return response
       })
-      .catch(err => {
-        logError(comment, err)
+      .catch(async err => {
+        console.log('Error creating issue:', err);
+
+        await delay(10 * 60 * 500); // Delay for 5 minutes
+
+        console.log('Retrying...');
+        await createIssueComment(comment);
       })
 
-    while (!(await isIssueCommentMade(issue, id))){
-      console.log(`Waiting for issue comment ${id} to be created...`)
-      await sleep(1000)
-    }
+
   }
 }
 
@@ -428,6 +435,7 @@ const main = async () => {
     process.stdout.write(`\r Comments remaining:${((comments.length - processed) / comments.length).toFixed(2)}% `);
     await createComment(comment, comments)
     processed++
+    await sleep(1000)
   }
 
 
