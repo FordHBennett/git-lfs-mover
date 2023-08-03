@@ -37,18 +37,6 @@ const bumpIssueCount = (issue) => {
 }
 
 /**
- * It logs an error message to the console and exits the program
- * @param issue - The issue object from the source repo
- * @param err - The error message returned by the GitHub API
- */
-const logError = (issue, err) => {
-  console.log(`Could not create issue: ${issue.number}`)
-  console.log(`Message: ${err}`)
-  console.log(`To continue, manually create an issue on your target repo and increment the 'issue' in ./${config.source.repo}/state.json`)
-  process.exit(1)
-}
-
-/**
  * It checks if an issue exists in the repository
  * @param issue - the issue object that we're going to create
  * @returns A boolean value
@@ -155,7 +143,7 @@ const createPull = async (pull) => {
   .catch(async (err) => {
     console.log('Error creating pull:', err);
 
-    await delay(10 * 60 * 1000); // Delay for 10 minutes
+    await delay(10 * 60 * 500); // Delay for 5 minutes
 
     console.log('Retrying...');
     await createPull(pull);
@@ -177,22 +165,22 @@ const main = async () => {
       /* This is checking if the issue is a pull request. If it is, it creates a pull request on the
       target repository. */
       await createPull(issue)
-      await sleep(200)
+      await sleep(1000)
       let pullExists = await isPullRequestMade(issue)
       while (!pullExists) {
         console.log(`Waiting for issue ${issue.number} to exist`)
-        await sleep(200)
+        await sleep(1000)
         pullExists = await isPullRequestMade(issue)
       }
     } else {
       /* Checking if the issue is a pull request. If it is, it creates a pull request on the
       target repository. */
       await createIssue(issue)
-      await sleep(200)
+      await sleep(1000)
       let issueExists = await isIssueMade(issue)
       while (!issueExists) {
         console.log(`Waiting for pull ${issue.number} to exist`)
-        await sleep(200)
+        await sleep(1000)
         issueExists = await isIssueMade(issue)
       }
     }

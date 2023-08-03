@@ -28,29 +28,6 @@ const bumpIssueCount = (issue) => {
   fs.writeFileSync(`./${config.source.repo}/state.json`, JSON.stringify(state, null, '  '))
 }
 
-/**
- * It checks if a branch exists
- * @param issue - the issue object from the webhook
- * @param which - 'base' or 'head'
- * @returns A boolean value
- */
-// const isBranchDeleted = async (issue, which) => {
-//   const url = `${api}/branches/pr${issue.number}${which}`
-//   let exists = false
-//   try {
-//     await request({
-//       method: 'GET',
-//       headers,
-//       url,
-//       json: true,
-//     })
-//   } catch (error) {
-//     exists = true
-//   }
-//   return exists
-// }
-
-
 const deleteBranch = async (issue) => {
   const baseUrl = `${api}/git/refs/heads`
   if (issue.closed_at) {
@@ -96,17 +73,9 @@ const main = async () => {
     if (issue.number <= (state.deletedIssue || 0)) {
       console.log(`Skipping ${issue.number}. Already processed`)
     } else {
-      process.stdout.write(`\r Branches to be deleted remaining:${((issues.length - processed) / issues.length).toFixed(2)}% `);
+      process.stdout.write(`\r Branches to be deleted remaining:${((issues.length - processed) / issues.length).toFixed(4)} `);
       await deleteBranch(issue)
       await sleep(1000)
-      // while (!(await isBranchDeleted(issue, 'base'))) {
-      //   console.log(`Waiting for branch pr${issue.number}base to be deleted`)
-      //   await sleep(1000)
-      // }
-      // while (!(await isBranchMade(issue, 'head'))) {
-      //   console.log(`Waiting for branch pr${issue.number}head to be deleted`)
-      //   await sleep(1000)
-      // }
     }
     processed++
   }

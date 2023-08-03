@@ -7,6 +7,11 @@ source bash_config.sh
 # Import throw_error function from throw_error.sh
 source throw_error.sh
 
+# Import kill_migrate_process function from kill_migrate_process.sh
+source modify-migrate-process/kill_migrate_process.sh
+source modify-migrate-process/pause_migrate_process.sh
+source modify-migrate-process/resume_migrate_process.sh
+
 # Source repo ssh
 readonly SRC_SSH
 # Target repo ssh
@@ -17,25 +22,31 @@ readonly REPO_DIR
 readonly REPO_MIRROR
 
 display_usage() {
-    echo "Usage: $0 [-bs BATCH_SIZE] [-h | --help]"
+    echo "Usage: $0 [-b BATCH_SIZE] [-c] [-n BRANCH_NUM] [-v] [-h]"
     echo "Options:"
-    echo "  -b BATCH_SIZE   Number of branches pushed in parallel (default: 1)"
+    echo "  -b BATCH_SIZE    Number of branches pushed in parallel (default: 1)"
     echo "  -c               Clone the source repository. Use this option if you are running this script for the first time."
-    echo "  -n BRANCH_NUM   Number of branches to skip (default: 0)"
+    echo "  -n BRANCH_NUM    Number of branches that have already been pushed(default: 0)"
     echo "  -v               Enable verbose mode"
     echo "  -h               Display this help message and exit"
     echo
     echo "Note:"
-    echo "  -b             Specifies the number of branches that will be pushed in parallel."
-    echo "                  If not specified, the script will push 1 branch at a time."
-    echo "  -c             Use this option if you are running this script for the first time."
-    echo "                  This option will clone the source repository and perform the migration."
-    echo "                  If not specified, the script will assume that the source repository is already cloned."
-    echo "  -n             Specifies the number of branches to skip."
-    echo "                  If not specified, the script will start from the first branch."
-    echo "  -v             Enable verbose mode."
-    echo "                  If not specified, the script will run in silent mode."
-    echo "  -h             Display this help message and exit."
+    echo "  -b               Specifies the number of branches that will be pushed in parallel."
+    echo "                   If not specified, the script will push 1 branch at a time."
+    echo "  -c               Use this option if you are running this script for the first time."
+    echo "                   This option will clone the source repository and perform the migration."
+    echo "                   If not specified, the script will assume that the source repository is already cloned."
+    echo "  -n               Specifies the number of branches to skip."
+    echo "                   If not specified, the script will start from the first branch."
+    echo "  -v               Enable verbose mode."
+    echo "                   If not specified, the script will run in silent mode."
+    echo "  -h               Display this help message and exit."
+    echo
+    echo "Examples:"
+    echo "  $0 -b 5 -n 10 -c"
+    echo "  $0 -c"
+    echo "  $0 -v"
+    echo "  $0 -h"
 }
 
 # Function to parse command-line arguments
@@ -57,14 +68,17 @@ parse_args() {
 # Function to handle SIGINT (Ctrl+C) signal
 handle_interrupt() {
     echo "Received SIGINT (Ctrl+C). Press 'r' to resume or 'q' to quit."
+    echo "$(sh modify-migrate-process/pause_migrate_process.sh)"
     while true; do
         read -r -n 1 -s response
         case $response in
             [Rr]) # Resume the script
                 echo "Resuming..."
+                echo "$(sh modify-migrate-process/resume_migrate_process)"
                 break ;;
             [Qq]) # Quit the script
                 echo "Exiting..."
+                echo "$(sh modify-migrate-process/kill_migrate_process.sh)"
                 exit 0 ;;
         esac
     done
@@ -73,14 +87,17 @@ handle_interrupt() {
 # Function to handle SIGTSTP (Ctrl+Z) signal
 handle_stop() {
     echo "Received SIGTSTP (Ctrl+Z). Press 'r' to resume or 'q' to quit."
+    echo "$(sh modify-migrate-process/pause_migrate_process.sh)"
     while true; do
         read -r -n 1 -s response
         case $response in
             [Rr]) # Resume the script
                 echo "Resuming..."
+                echo "$(sh modify-migrate-process/resume_migrate_process)"
                 break ;;
             [Qq]) # Quit the script
                 echo "Exiting..."
+                echo "$(sh modify-migrate-process/kill_migrate_process.sh)"
                 exit 0 ;;
         esac
     done
@@ -97,6 +114,7 @@ clone_mirror_repo() {
       echo "Successfully cloned $SRC_SSH to $REPO_MIRROR"
     else
       echo "Failed to clone $SRC_SSH; exited with $?" >&2
+      echo "If the exit code is 128, then the repository is already cloned." >&2
       exit 1
     fi
 
@@ -168,7 +186,7 @@ push_small_commits_in_parallel() {
     export -f push_small_commits_to_branch # Export the function to make it available for parallelization
 
     for ((i=0; i<"${#branches[@]}"; i+=1)); do
-        #push_small_commits_to_branch "${branches[i]}" &
+        push_small_commits_to_branch "${branches[i]}" &
         echo "Pushing branch ${branches[i]}..."
     done
     wait
@@ -200,12 +218,11 @@ main()
     if [ "$CLONE_FLAG" == "true" ]; then
         clone_mirror_repo
     fi
-    # Add if CLONE_FLAG then to check if the repo is already cloned if true and
-    # rm -fr "$REPO_DIR" && clone_mirror_repo
-    # Add if not CLONE_FLAG then to check if the repo is already cloned if. If
-    # it is not then clone_mirror_repo
 
-
+    if [ ! -d "$REPO_DIR" ]; then
+        echo "Error: $REPO_DIR does not exist. Please run this script with the -c option to clone the source repository."
+        exit 1
+    fi
 
     cd "$REPO_DIR"
 
@@ -219,16 +236,19 @@ main()
           refs_parrallel_arr+=("${refs_array[BRANCH_NUM+i]}")
         done
         push_small_commits_in_parallel "${refs_parrallel_arr[@]}"
+        if push_all=$(git push "$TARGET_SSH" --all 2>&1); then
+          printf '%s
+        ' "$push_all"
+          break
+        fi
     done
 
     # Push the remaining branches
-    # local refs_parrallel_remaining_arr=()
-    # local hashes_parrallel_remaining_arr=()
-    # for ((i=0; i<((${#refs_array[@]} % ${batch_size} )); i++)); do
-    #   refs_parrallel_remaining_arr+=("${refs_array[BRANCH_NUM+i]}")
-    #   hashes_parrallel_remaining_arr+=("${hashes_array[BRANCH_NUM+i]}")
-    # done
-    # push_small_commits_in_parallel "${refs_parrallel_remaining_arr[@]}" "${hashes_parrallel_remaining_arr[@]}"
+    refs_parrallel_remaining_arr=()
+    for ((i=0; i<((${#refs_array[@]} % ${batch_size} )); i++)); do
+      refs_parrallel_remaining_arr+=("${refs_array[BRANCH_NUM+i]}")
+    done
+    push_small_commits_in_parallel "${refs_parrallel_remaining_arr[@]}"
 
     # Push all changes to the remote repository
     echo $(git push "$TARGET_SSH" --all)

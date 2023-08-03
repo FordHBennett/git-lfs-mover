@@ -4,6 +4,7 @@ This repo was built to migrate large repositories (i.e `git clone <source-repo-s
 
 It is important for users to ensure that they have non-user admin tokens for both their source and target GitHub before beginning the migration process. Furthermore, this tool does not create a new repository in the destination GitHub; users will have to create an empty repository in their target Github to migrate their source repository into. If you have dependabot security updates enabled, disable it before pushing your new repo. If it picks up a new vulnerability, it can auto-create a PR and your issue numbers will no longer match. There is no API access to migrate images to the target GitHub CDN Githubusercontent. The tool checks whether images are in issues' descriptions or comments, uploads them to the provided S3 bucket, and updates the image link. If you want to use this functionality, create an S3 bucket and configure it in the `config.js` and `s3Config.js` files that are created during initialization. (See below steps)
 
+
 #### Preparation Steps
 1. Ensure you have non-user admin tokens for both the source and the target Github.
 2. Create an empty repository in the destination Github.
@@ -21,7 +22,9 @@ It is important for users to ensure that they have non-user admin tokens for bot
      3. Copy the result of `git rev-list --max-parents=0 HEAD`.
      4. `cd ..`.
      5. `rm -rf <source-repo>`.
-     6. Edit line 11 of `createComments.js` so that `const dummyCommit =` the result of `git rev-list --max-parents=0 HEAD`.
+     6. Edit line 11 of `createComments.js` so that `const dummyCommit =` the
+        result of `git rev-list --max-parents=0 HEAD`.
+
 
 #### Migration Steps
 1. Clone this repository.
@@ -34,7 +37,6 @@ It is important for users to ensure that they have non-user admin tokens for bot
       Test your destination configuration by running `node test.js target`
       Test your S3 configuration by running `node s3Test.js`
 6. Edit `migrate.sh` and `createComments.js` as described above.
-6. Make the `migrate.sh` executable by running `chmod -x migrate.sh`.
-7. Run the `migrate.sh` file by executing `./migrate.sh` in the terminal.
-
-#### Troubleshooting
+7. Make the `migrate.sh` executable by running `chmod -x migrate.sh`.
+8. Run `./migrate.sh -h` to view the flags.
+9. Run `./migrate.sh` with the specified flags.
