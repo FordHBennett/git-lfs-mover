@@ -8,7 +8,7 @@ const processImages = require('./processImages')
 
 const api = `${config.target.baseUrl}/${config.target.org}/${config.target.repo}`
 //dummy commit to use when the commit is not found
-const dummyCommit =  `2902d627ea7f91976e72f6e369a5d49e5822fba6`
+const dummyCommit =  ``
 
 /* This is setting up the headers for the request. */
 const headers = {
